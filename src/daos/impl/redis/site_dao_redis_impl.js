@@ -79,13 +79,15 @@ const insert = async (site) => {
  * @param {number} id - a site ID.
  * @returns {Promise} - a Promise, resolving to a site object.
  */
+
 const findById = async (id) => {
   const client = redis.getClient();
-  const siteKey = keyGenerator.getSiteHashKey(id);
 
-  const siteHash = await client.hgetallAsync(siteKey);
+  const siteHashKey = keyGenerator.getSiteHashKey(id);
 
-  return (siteHash === null ? siteHash : remap(siteHash));
+  const siteHash = await client.hgetallAsync(siteHashKey);
+
+  return siteHash ? remap(siteHash) : null;
 };
 
 /* eslint-disable arrow-body-style */
