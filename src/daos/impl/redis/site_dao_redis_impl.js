@@ -98,7 +98,23 @@ const findById = async (id) => {
  */
 const findAll = async () => {
   // START CHALLENGE #1
-  return [];
+  const client = redis.getClient();
+
+  const listOfAllSiteIds = await client.smembersAsync(
+    keyGenerator.getSiteIDsKey()
+  );
+
+  const listOfAllValues = [];
+  for (const siteHash of listOfAllSiteIds) {
+    // eslint-disable-next-line no-await-in-loop
+    const currentSite = await client.hgetallAsync(siteHash);
+    if (currentSite) {
+      console.log('INSIDE');
+      listOfAllValues.push(remap(currentSite));
+    }
+  }
+
+  return listOfAllValues;
   // END CHALLENGE #1
 };
 /* eslint-enable */
