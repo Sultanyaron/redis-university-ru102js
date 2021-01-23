@@ -12,6 +12,7 @@
     "no-console": "off",
     "no-restricted-syntax": "off",
     "no-prototype-builtins": "off",
-    "comma-dangle": "off"
+    "comma-dangle": "off",
+    "implicit-arrow-linebreak": "off"
   }
 }
