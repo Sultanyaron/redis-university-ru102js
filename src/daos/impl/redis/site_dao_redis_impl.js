@@ -68,7 +68,19 @@ const insert = async (site) => {
   const siteHashKey = keyGenerator.getSiteHashKey(site.id);
 
   await client.hmsetAsync(siteHashKey, flatten(site));
-  await client.saddAsync(keyGenerator.getSiteIDsKey(), siteHashKey);
+  // this is removed since we added the geoadd and this is adding every site to a sorted list
+  // await client.saddAsync(keyGenerator.getSiteIDsKey(), siteHashKey);
+
+  if (!site.coordinate) {
+    throw new Error('Coordinate required for site geo insert!');
+  }
+
+  await client.geoaddAsync(
+    keyGenerator.getSiteGeoKey(),
+    site.coordinate.lng,
+    site.coordinate.lat,
+    site.id
+  );
 
   return siteHashKey;
 };
@@ -100,16 +112,20 @@ const findAll = async () => {
   // START CHALLENGE #1
   const client = redis.getClient();
 
-  const listOfAllSiteIds = await client.smembersAsync(
-    keyGenerator.getSiteIDsKey()
+  const listOfAllSiteIds = await client.zrangeAsync(
+    keyGenerator.getSiteGeoKey(),
+    0,
+    -1
   );
 
+  console.log(listOfAllSiteIds);
   const listOfAllValues = [];
-  for (const siteHash of listOfAllSiteIds) {
+  for (const siteId of listOfAllSiteIds) {
+    const siteKey = keyGenerator.getSiteHashKey(siteId);
+
     // eslint-disable-next-line no-await-in-loop
-    const currentSite = await client.hgetallAsync(siteHash);
+    const currentSite = await client.hgetallAsync(siteKey);
     if (currentSite) {
-      console.log('INSIDE');
       listOfAllValues.push(remap(currentSite));
     }
   }
@@ -132,7 +148,31 @@ const findAll = async () => {
  * @param {'KM' | 'MI'} radiusUnit - The unit that the value of radius is in.
  * @returns {Promise} - a Promise, resolving to an array of site objects.
  */
-const findByGeo = async (lat, lng, radius, radiusUnit) => [];
+const findByGeo = async (lat, lng, radius, radiusUnit) => {
+  const client = redis.getClient();
+
+  const siteIds = await client.georadiusAsync(
+    keyGenerator.getSiteGeoKey(),
+    lng,
+    lat,
+    radius,
+    radiusUnit.toLocaleLowerCase()
+  );
+
+  const sites = [];
+
+  for (const siteId of siteIds) {
+    const siteKey = keyGenerator.getSiteHashKey(siteId);
+    // eslint-disable-next-line no-await-in-loop
+    const siteHash = await client.hgetallAsync(siteKey);
+
+    if (siteHash) {
+      sites.push(remap(siteHash));
+    }
+  }
+
+  return sites;
+};
 
 /**
  * Get an array of sites where capacity exceeds consumption within
